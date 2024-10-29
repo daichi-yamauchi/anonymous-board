@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import { renderer } from './components';
+import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -13,13 +15,37 @@ app.get('/', async (c) => {
 			<h1>匿名掲示板</h1>
 			<p>ようこそ！</p>
 			<h2>スレッド一覧</h2>
-			{results.map((thread) => (
-				<div>
-					<a href={`/threads/${thread.id}`}>{thread.title}</a>
-				</div>
-			))}
+			<div id="threads">
+				{results.map((thread) => (
+					<div>
+						<a href={`/threads/${thread.id}`}>{thread.title}</a>
+					</div>
+				))}
+			</div>
+			<h2>スレッド作成</h2>
+			<form action="/threads" method="post">
+				<input type="text" name="title" placeholder="タイトル" />
+				<button type="submit">作成</button>
+			</form>
 		</div>
 	);
 });
+
+app.post(
+	'/threads',
+	zValidator(
+		'form',
+		z.object({
+			title: z.string().min(1),
+		})
+	),
+	async (c) => {
+		const { title } = await c.req.valid('form');
+
+		const { meta } = await c.env.DB.prepare('INSERT INTO thread (title) VALUES (?);').bind(title).run();
+
+		return c.redirect(`/threads/${meta.last_row_id}`);
+	}
+);
 
 export default app;

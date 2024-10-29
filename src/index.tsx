@@ -6,7 +6,12 @@ const app = new Hono<{ Bindings: Env }>();
 app.get('*', renderer);
 
 app.get('/', async (c) => {
-	return c.render('Hello, World!');
+	return c.render(
+		<div>
+			<h1>匿名掲示板</h1>
+			<p>ようこそ！</p>
+		</div>
+	);
 });
 
 export default app;

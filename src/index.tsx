@@ -58,9 +58,22 @@ app.get('/threads/:id', zValidator('param', z.object({ id: z.string().pipe(z.coe
 		return c.render(<div>スレッドが見つかりませんでした</div>);
 	}
 
+	const { results } = await c.env.DB.prepare('SELECT id, content FROM post WHERE thread_id = ? ORDER BY id ASC LIMIT 1000').bind(id).all();
+
 	return c.render(
 		<div>
 			<h1>{thread.title}</h1>
+			<div id="posts">
+				{results.map((post) => (
+					<>
+						<hr />
+						<div>
+							<h2>{post.id}</h2>
+							<p>{post.content}</p>
+						</div>
+					</>
+				))}
+			</div>
 		</div>
 	);
 });

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { renderer } from './components';
 import { zValidator } from '@hono/zod-validator';
-import { z } from 'zod';
+import { coerce, z } from 'zod';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -47,5 +47,22 @@ app.post(
 		return c.redirect(`/threads/${meta.last_row_id}`);
 	}
 );
+
+app.get('/threads/:id', zValidator('param', z.object({ id: z.string().pipe(z.coerce.number()) })), async (c) => {
+	const { id } = await c.req.valid('param');
+
+	const thread = await c.env.DB.prepare('SELECT title FROM thread WHERE id = ?').bind(id).first();
+
+	if (!thread) {
+		c.status(404);
+		return c.render(<div>スレッドが見つかりませんでした</div>);
+	}
+
+	return c.render(
+		<div>
+			<h1>{thread.title}</h1>
+		</div>
+	);
+});
 
 export default app;

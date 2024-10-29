@@ -16,3 +16,13 @@ export const renderer = jsxRenderer(({ children }) => {
 		</html>
 	`;
 });
+
+export const Post = ({ id, content }: { id: unknown; content: unknown }) => {
+	return html`
+		<hr />
+		<div>
+			<h2>${id}</h2>
+			<p>${content}</p>
+		</div>
+	`;
+};

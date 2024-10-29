@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
-import { renderer } from './components';
+import { Post, renderer } from './components';
 import { zValidator } from '@hono/zod-validator';
-import { coerce, z } from 'zod';
+import { z } from 'zod';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -48,7 +48,7 @@ app.post(
 	}
 );
 
-app.get('/threads/:id', zValidator('param', z.object({ id: z.string().pipe(z.coerce.number()) })), async (c) => {
+app.get('/threads/:id', zValidator('param', z.object({ id: z.string() })), async (c) => {
 	const { id } = await c.req.valid('param');
 
 	const thread = await c.env.DB.prepare('SELECT title FROM thread WHERE id = ?').bind(id).first();
@@ -65,17 +65,35 @@ app.get('/threads/:id', zValidator('param', z.object({ id: z.string().pipe(z.coe
 			<h1>{thread.title}</h1>
 			<div id="posts">
 				{results.map((post) => (
-					<>
-						<hr />
-						<div>
-							<h2>{post.id}</h2>
-							<p>{post.content}</p>
-						</div>
-					</>
+					<Post id={post.id} content={post.content} />
 				))}
 			</div>
+			<h2>投稿</h2>
+			<form hx-post={`/threads/${id}/posts`} hx-target="#posts" hx-swap="beforeend" hx-on="htmx:afterRequest: this.reset()">
+				<textarea name="content" placeholder="本文" />
+				<button type="submit">投稿</button>
+			</form>
 		</div>
 	);
 });
+
+app.post(
+	'/threads/:id/posts',
+	zValidator(
+		'form',
+		z.object({
+			content: z.string().min(1),
+		})
+	),
+	zValidator('param', z.object({ id: z.string() })),
+	async (c) => {
+		const { id } = await c.req.valid('param');
+		const { content } = await c.req.valid('form');
+
+		const { meta } = await c.env.DB.prepare('INSERT INTO post (thread_id, content) VALUES (?, ?);').bind(id, content).run();
+
+		return c.html(<Post id={meta.last_row_id} content={content} />);
+	}
+);
 
 export default app;

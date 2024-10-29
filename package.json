@@ -6,6 +6,7 @@
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
 		"start": "wrangler dev",
+		"apply-ddl": "wrangler d1 execute prod-anonymous-board --local --file=./database/ddl.sql",
 		"cf-typegen": "wrangler types"
 	},
 	"devDependencies": {

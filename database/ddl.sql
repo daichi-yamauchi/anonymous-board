@@ -7,8 +7,9 @@ CREATE TABLE thread (
 );
 
 CREATE TABLE post (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER,
   thread_id INTEGER NOT NULL,
   content TEXT NOT NULL,
+  PRIMARY KEY (id, thread_id),
   FOREIGN KEY (thread_id) REFERENCES thread(id)
 );

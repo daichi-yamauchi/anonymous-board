@@ -67,10 +67,10 @@ app.get('/threads/:id', zValidator('param', z.object({ id: z.string() })), async
 		<div>
 			<h2 class="text-xl font-bold my-3">{thread.title}</h2>
 			<div id="posts">
+				{results.length === 0 && <p class="hidden last:block">投稿がありません</p>}
 				{results.map((post) => (
 					<Post id={post.id} content={post.content} />
 				))}
-				{results.length === 0 && <p>投稿がありません</p>}
 			</div>
 			<h3 class="text-lg font-bold mt-5 mb-3">投稿</h3>
 			<form hx-post={`/threads/${id}/posts`} hx-target="#posts" hx-swap="beforeend" hx-on="htmx:afterRequest: this.reset()">
@@ -93,12 +93,19 @@ app.post(
 	),
 	zValidator('param', z.object({ id: z.string() })),
 	async (c) => {
-		const { id } = await c.req.valid('param');
+		const { id: threadId } = await c.req.valid('param');
 		const { content } = await c.req.valid('form');
 
-		const { meta } = await c.env.DB.prepare('INSERT INTO post (thread_id, content) VALUES (?, ?);').bind(id, content).run();
+		const { count } = (await c.env.DB.prepare('SELECT COUNT(*) as count FROM post WHERE thread_id = ?').bind(threadId).first()) as {
+			count: number;
+		};
+		const id = count + 1;
 
-		return c.html(<Post id={meta.last_row_id} content={content} />);
+		const { meta } = await c.env.DB.prepare('INSERT INTO post (id, thread_id, content) VALUES (?, ?, ?);')
+			.bind(id, threadId, content)
+			.run();
+
+		return c.html(<Post id={id} content={content} />);
 	}
 );
 

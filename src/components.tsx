@@ -1,4 +1,4 @@
-import { html } from 'hono/html';
+import { html, raw } from 'hono/html';
 import { jsxRenderer } from 'hono/jsx-renderer';
 
 export const renderer = jsxRenderer(({ children }) => {
@@ -21,12 +21,28 @@ export const renderer = jsxRenderer(({ children }) => {
 	`;
 });
 
-export const Post = ({ id, content }: { id: unknown; content: unknown }) => {
+export const Post = ({ id, content }: { id: unknown; content: string }) => {
 	return html`
 		<hr />
 		<div class="flex gap-3 my-2">
 			<h4>${id}</h4>
-			<p>${content}</p>
+			<p>${raw(escape_html(content).replace(/\r\n|\n|\r/g, '<br />'))}</p>
 		</div>
 	`;
 };
+
+function escape_html(string: string) {
+	if (typeof string !== 'string') {
+		return string;
+	}
+	return string.replace(/[&'`"<>]/g, (match) => {
+		return {
+			'&': '&amp;',
+			"'": '&#x27;',
+			'`': '&#x60;',
+			'"': '&quot;',
+			'<': '&lt;',
+			'>': '&gt;',
+		}[match]!;
+	});
+}

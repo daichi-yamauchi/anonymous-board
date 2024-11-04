@@ -69,7 +69,7 @@ app.get('/threads/:id', zValidator('param', z.object({ id: z.string() })), async
 			<div id="posts">
 				{results.length === 0 && <p class="hidden last:block">投稿がありません</p>}
 				{results.map((post) => (
-					<Post id={post.id} content={post.content} />
+					<Post id={post.id} content={post.content as string} />
 				))}
 			</div>
 			<h3 class="text-lg font-bold mt-5 mb-3">投稿</h3>

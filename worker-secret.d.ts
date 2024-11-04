@@ -1,0 +1,3 @@
+interface Env {
+	PASSWORD: string;
+}

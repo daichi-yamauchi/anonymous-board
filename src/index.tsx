@@ -2,8 +2,16 @@ import { Hono } from 'hono';
 import { Post, renderer } from './components';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
+import { basicAuth } from 'hono/basic-auth';
 
 const app = new Hono<{ Bindings: Env }>();
+
+app.use('*', (c, next) =>
+	basicAuth({
+		username: 'anonymous',
+		password: c.env.PASSWORD,
+	})(c, next)
+);
 
 app.get('*', renderer);
 

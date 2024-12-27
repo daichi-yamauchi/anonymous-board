@@ -16,7 +16,14 @@ app.use('*', (c, next) =>
 app.get('*', renderer);
 
 app.get('/', async (c) => {
-	const { results } = await c.env.DB.prepare('SELECT id, title FROM thread ORDER BY id DESC LIMIT 1000').all();
+	const { results } = await c.env.DB.prepare(`
+		SELECT thread.id, thread.title, COUNT(post.id) as post_count
+		FROM thread
+		LEFT JOIN post ON thread.id = post.thread_id
+		GROUP BY thread.id, thread.title
+		ORDER BY thread.id DESC
+		LIMIT 1000
+	`).all();
 
 	return c.render(
 		<>
@@ -26,7 +33,7 @@ app.get('/', async (c) => {
 				{results.map((thread) => (
 					<div>
 						<a href={`/threads/${thread.id}`} class="text-blue-500 underline">
-							{thread.title}
+							{thread.title} ({thread.post_count})
 						</a>
 					</div>
 				))}

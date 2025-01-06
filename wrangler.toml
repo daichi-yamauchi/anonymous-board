@@ -99,7 +99,7 @@ database_id = "19c8555b-9717-4d44-b872-0470aeea67ae"
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#r2-buckets
 [[r2_buckets]]
 binding = "IMAGE_BUCKET"
-bucket_name = "image-bucket"
+bucket_name = "anonymous-board-image-bucket"
 
 # Bind another Worker service. Use this binding to call another Worker without network overhead.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings

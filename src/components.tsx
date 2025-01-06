@@ -21,12 +21,13 @@ export const renderer = jsxRenderer(({ children }) => {
 	`;
 });
 
-export const Post = ({ id, content }: { id: unknown; content: string }) => {
+export const Post = ({ id, content, imageUrl }: { id: unknown; content: string; imageUrl?: string }) => {
 	return html`
 		<hr />
 		<div class="flex gap-3 my-2">
 			<h4>${id}</h4>
 			<p>${raw(escape_html(content).replace(/\r\n|\n|\r/g, '<br />'))}</p>
+			${imageUrl ? html`<img src="${imageUrl}" alt="Attached Image" class="max-w-xs max-h-xs" />` : ''}
 		</div>
 	`;
 };

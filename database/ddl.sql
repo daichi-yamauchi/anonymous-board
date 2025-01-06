@@ -10,6 +10,7 @@ CREATE TABLE post (
   id INTEGER,
   thread_id INTEGER NOT NULL,
   content TEXT NOT NULL,
+  image_url TEXT, -- P5291
   PRIMARY KEY (id, thread_id),
   FOREIGN KEY (thread_id) REFERENCES thread(id)
 );

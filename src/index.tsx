@@ -76,7 +76,7 @@ app.get('/threads/:id', zValidator('param', z.object({ id: z.string() })), async
 		return c.render(<div>スレッドが見つかりませんでした</div>);
 	}
 
-	const { results } = await c.env.DB.prepare('SELECT id, content FROM post WHERE thread_id = ? ORDER BY id ASC LIMIT 1000').bind(id).all();
+	const { results } = await c.env.DB.prepare('SELECT id, content, image_url FROM post WHERE thread_id = ? ORDER BY id ASC LIMIT 1000').bind(id).all();
 
 	return c.render(
 		<div>
@@ -84,12 +84,13 @@ app.get('/threads/:id', zValidator('param', z.object({ id: z.string() })), async
 			<div id="posts">
 				{results.length === 0 && <p class="hidden last:block">投稿がありません</p>}
 				{results.map((post) => (
-					<Post id={post.id} content={post.content as string} />
+					<Post id={post.id} content={post.content as string} imageUrl={post.image_url as string} />
 				))}
 			</div>
 			<h3 class="text-lg font-bold mt-5 mb-3">投稿</h3>
-			<form hx-post={`/threads/${id}/posts`} hx-target="#posts" hx-swap="beforeend" hx-on="htmx:afterRequest: this.reset()">
+			<form hx-post={`/threads/${id}/posts`} hx-target="#posts" hx-swap="beforeend" hx-on="htmx:afterRequest: this.reset()" encType="multipart/form-data">
 				<textarea name="content" placeholder="本文" class="border border-gray-300 rounded p-1 w-80 h-20" />
+				<input type="file" name="image" accept="image/*" class="border border-gray-300 rounded p-1 w-80 h-10" />
 				<button type="submit" class="border rounded h-10 w-20 bg-gray-50 block">
 					投稿
 				</button>
@@ -116,11 +117,19 @@ app.post(
 		};
 		const id = count + 1;
 
-		const { meta } = await c.env.DB.prepare('INSERT INTO post (id, thread_id, content) VALUES (?, ?, ?);')
-			.bind(id, threadId, content)
+		let imageUrl = null;
+		const image = c.req.files?.image;
+		if (image) {
+			const imageName = `${threadId}-${id}-${image.name}`;
+			const imageUrl = `https://<your-r2-bucket-url>/${imageName}`;
+			await c.env.IMAGE_BUCKET.put(imageName, image.data);
+		}
+
+		const { meta } = await c.env.DB.prepare('INSERT INTO post (id, thread_id, content, image_url) VALUES (?, ?, ?, ?);')
+			.bind(id, threadId, content, imageUrl)
 			.run();
 
-		return c.html(<Post id={id} content={content} />);
+		return c.html(<Post id={id} content={content} imageUrl={imageUrl} />);
 	}
 );
 

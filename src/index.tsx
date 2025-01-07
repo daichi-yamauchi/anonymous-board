@@ -18,14 +18,16 @@ app.use('*', (c, next) =>
 app.get('*', renderer);
 
 app.get('/', async (c) => {
-	const { results } = await c.env.DB.prepare(`
+	const { results } = await c.env.DB.prepare(
+		`
 		SELECT thread.id, thread.title, COUNT(post.id) as post_count
 		FROM thread
 		LEFT JOIN post ON thread.id = post.thread_id
 		GROUP BY thread.id, thread.title
 		ORDER BY thread.id DESC
 		LIMIT 1000
-	`).all();
+	`
+	).all();
 
 	return c.render(
 		<>
@@ -78,12 +80,17 @@ app.get('/threads/:id', zValidator('param', z.object({ id: z.string() })), async
 		return c.render(<div>スレッドが見つかりませんでした</div>);
 	}
 
-	const { results } = await c.env.DB.prepare('SELECT id, content, image_key FROM post WHERE thread_id = ? ORDER BY id ASC LIMIT 1000').bind(id).all();
+	const { results } = await c.env.DB.prepare('SELECT id, content, image_key FROM post WHERE thread_id = ? ORDER BY id ASC LIMIT 1000')
+		.bind(id)
+		.all();
 
 	const postsWithPresignedUrls = await Promise.all(
 		results.map(async (post) => {
 			if (post.image_key) {
-				const presignedUrl = await generatePresignedUrl(post.image_key);
+				const presignedUrl = await generatePresignedUrl(post.image_key as string, {
+					accessKeyId: c.env.R2_ACCESS_KEY,
+					secretAccessKey: c.env.R2_SECRET,
+				});
 				return { ...post, image_url: presignedUrl };
 			}
 			return post;
@@ -100,7 +107,13 @@ app.get('/threads/:id', zValidator('param', z.object({ id: z.string() })), async
 				))}
 			</div>
 			<h3 class="text-lg font-bold mt-5 mb-3">投稿</h3>
-			<form hx-post={`/threads/${id}/posts`} hx-target="#posts" hx-swap="beforeend" hx-on="htmx:afterRequest: this.reset()" encType="multipart/form-data">
+			<form
+				hx-post={`/threads/${id}/posts`}
+				hx-target="#posts"
+				hx-swap="beforeend"
+				hx-on="htmx:afterRequest: this.reset()"
+				encType="multipart/form-data"
+			>
 				<textarea name="content" placeholder="本文" class="border border-gray-300 rounded p-1 w-80 h-20" />
 				<input type="file" name="image" accept="image/*" class="border border-gray-300 rounded p-1 w-80 h-10" />
 				<button type="submit" class="border rounded h-10 w-20 bg-gray-50 block">
@@ -134,7 +147,7 @@ app.post(
 		if (image) {
 			const imageName = `${threadId}-${id}-${image.name}`;
 			imageKey = imageName;
-			await c.env.IMAGE_BUCKET.put(imageName, image.data);
+			await c.env.IMAGE_BUCKET.put(imageName, image);
 		}
 
 		const { meta } = await c.env.DB.prepare('INSERT INTO post (id, thread_id, content, image_key) VALUES (?, ?, ?, ?);')
@@ -143,15 +156,28 @@ app.post(
 
 		let presignedUrl = null;
 		if (imageKey) {
-			presignedUrl = await generatePresignedUrl(imageKey);
+			presignedUrl = await generatePresignedUrl(imageKey, {
+				accessKeyId: c.env.R2_ACCESS_KEY,
+				secretAccessKey: c.env.R2_SECRET,
+			});
 		}
 
 		return c.html(<Post id={id} content={content} imageUrl={presignedUrl} />);
 	}
 );
 
-async function generatePresignedUrl(imageKey: string): Promise<string> {
-	const client = new S3Client({ region: 'auto' });
+async function generatePresignedUrl(
+	imageKey: string,
+	credentials: {
+		accessKeyId: string;
+		secretAccessKey: string;
+	}
+): Promise<string> {
+	const client = new S3Client({
+		region: 'auto',
+		endpoint: `https://05847b9c0162cfb2c0759265aad3160b.r2.cloudflarestorage.com`,
+		credentials,
+	});
 	const command = new GetObjectCommand({
 		Bucket: 'anonymous-board-image-bucket',
 		Key: imageKey,

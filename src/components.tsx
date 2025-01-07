@@ -21,7 +21,7 @@ export const renderer = jsxRenderer(({ children }) => {
 	`;
 });
 
-export const Post = ({ id, content, imageUrl }: { id: unknown; content: string; imageUrl?: string }) => {
+export const Post = ({ id, content, imageUrl }: { id: unknown; content: string; imageUrl?: string | null }) => {
 	return html`
 		<hr />
 		<div class="flex gap-3 my-2">

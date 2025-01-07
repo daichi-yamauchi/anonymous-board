@@ -3,6 +3,8 @@ import { Post, renderer } from './components';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { basicAuth } from 'hono/basic-auth';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -76,14 +78,24 @@ app.get('/threads/:id', zValidator('param', z.object({ id: z.string() })), async
 		return c.render(<div>スレッドが見つかりませんでした</div>);
 	}
 
-	const { results } = await c.env.DB.prepare('SELECT id, content, image_url FROM post WHERE thread_id = ? ORDER BY id ASC LIMIT 1000').bind(id).all();
+	const { results } = await c.env.DB.prepare('SELECT id, content, image_key FROM post WHERE thread_id = ? ORDER BY id ASC LIMIT 1000').bind(id).all();
+
+	const postsWithPresignedUrls = await Promise.all(
+		results.map(async (post) => {
+			if (post.image_key) {
+				const presignedUrl = await generatePresignedUrl(post.image_key);
+				return { ...post, image_url: presignedUrl };
+			}
+			return post;
+		})
+	);
 
 	return c.render(
 		<div>
 			<h2 class="text-xl font-bold my-3">{thread.title}</h2>
 			<div id="posts">
-				{results.length === 0 && <p class="hidden last:block">投稿がありません</p>}
-				{results.map((post) => (
+				{postsWithPresignedUrls.length === 0 && <p class="hidden last:block">投稿がありません</p>}
+				{postsWithPresignedUrls.map((post) => (
 					<Post id={post.id} content={post.content as string} imageUrl={post.image_url as string} />
 				))}
 			</div>
@@ -117,20 +129,35 @@ app.post(
 		};
 		const id = count + 1;
 
-		let imageUrl = null;
+		let imageKey = null;
 		const image = c.req.files?.image;
 		if (image) {
 			const imageName = `${threadId}-${id}-${image.name}`;
-			const imageUrl = `https://<your-r2-bucket-url>/${imageName}`;
+			imageKey = imageName;
 			await c.env.IMAGE_BUCKET.put(imageName, image.data);
 		}
 
-		const { meta } = await c.env.DB.prepare('INSERT INTO post (id, thread_id, content, image_url) VALUES (?, ?, ?, ?);')
-			.bind(id, threadId, content, imageUrl)
+		const { meta } = await c.env.DB.prepare('INSERT INTO post (id, thread_id, content, image_key) VALUES (?, ?, ?, ?);')
+			.bind(id, threadId, content, imageKey)
 			.run();
 
-		return c.html(<Post id={id} content={content} imageUrl={imageUrl} />);
+		let presignedUrl = null;
+		if (imageKey) {
+			presignedUrl = await generatePresignedUrl(imageKey);
+		}
+
+		return c.html(<Post id={id} content={content} imageUrl={presignedUrl} />);
 	}
 );
+
+async function generatePresignedUrl(imageKey: string): Promise<string> {
+	const client = new S3Client({ region: 'auto' });
+	const command = new GetObjectCommand({
+		Bucket: 'anonymous-board-image-bucket',
+		Key: imageKey,
+	});
+	const url = await getSignedUrl(client, command, { expiresIn: 3600 });
+	return url;
+}
 
 export default app;

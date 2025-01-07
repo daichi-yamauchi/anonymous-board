@@ -117,12 +117,13 @@ app.post(
 		'form',
 		z.object({
 			content: z.string().min(1),
+			image: z.instanceof(File).optional(), // P34b0
 		})
 	),
 	zValidator('param', z.object({ id: z.string() })),
 	async (c) => {
 		const { id: threadId } = await c.req.valid('param');
-		const { content } = await c.req.valid('form');
+		const { content, image } = await c.req.valid('form');
 
 		const { count } = (await c.env.DB.prepare('SELECT COUNT(*) as count FROM post WHERE thread_id = ?').bind(threadId).first()) as {
 			count: number;
@@ -130,7 +131,6 @@ app.post(
 		const id = count + 1;
 
 		let imageKey = null;
-		const image = c.req.files?.image;
 		if (image) {
 			const imageName = `${threadId}-${id}-${image.name}`;
 			imageKey = imageName;
